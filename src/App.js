@@ -15,24 +15,48 @@ const axiosGitHubGraphQL = axios.create({
 });
 
 // can call this function in our function for fetching data from GitHub -- returns payload
-const getIssuesOfRepository = path => {
+const getIssuesOfRepository = (path, cursor) => {
   const [organization, repository] = path.split("/");
 
   // run our GraphQL query and pass the following variables we extracted from path
   return axiosGitHubGraphQL.post("", {
     query: GET_ISSUES_OF_REPOSITORY,
-    variables: { organization, repository }
+    variables: { organization, repository, cursor }
   });
 };
 
 // higher order function -- cleans up the set state
-const resolveIssuesQuery = queryResult => () => ({
-  organization: queryResult.data.data.organization,
-  errors: queryResult.data.errors
-});
+const resolveIssuesQuery = (queryResult, cursor) => state => {
+  const { data, errors } = queryResult.data;
+
+  if (!cursor) {
+    return {
+      organization: data.organization,
+      errors
+    };
+  }
+
+  const { edges: oldIssues } = state.organization.repository.issues;
+  const { edges: newIssues } = data.organization.repository.issues;
+  const updatedIssues = [...oldIssues, ...newIssues];
+
+  return {
+    organization: {
+      ...data.organization,
+      repository: {
+        ...data.organization.repository,
+        issues: {
+          ...data.organization.repository.issues,
+          edges: updatedIssues
+        }
+      }
+    },
+    errors
+  };
+};
 
 const GET_ISSUES_OF_REPOSITORY = `
-query ($organization: String!, $repository: String!)
+query ($organization: String!, $repository: String!, $cursor: String)
 {
   organization(login: $organization) {
     name
@@ -40,13 +64,26 @@ query ($organization: String!, $repository: String!)
     repository(name: $repository) {
       name
       url
-      issues(last: 5) {
+      issues(first: 5, after: $cursor, states: [OPEN]) {
         edges {
           node {
             id
             title
             url
+            reactions(last: 3) {
+              edges {
+                node {
+                  id
+                  content
+                }
+              }
+            }
           }
+        }
+        totalCount
+        pageInfo {
+          endCursor
+          hasNextPage
         }
       }
     }
@@ -79,12 +116,18 @@ class App extends React.Component {
   };
 
   // can then take in the data result here and put it into state using our higher order function
-  onFetchFromGitHub = path => {
+  onFetchFromGitHub = (path, cursor) => {
     // this will run the extraction of vars and the query itself
-    getIssuesOfRepository(path).then(
-      queryResult => this.setState(resolveIssuesQuery(queryResult))
+    getIssuesOfRepository(path, cursor).then(
+      queryResult => this.setState(resolveIssuesQuery(queryResult, cursor))
       // put the resulting vars into state
     );
+  };
+
+  onFetchMoreIssues = () => {
+    const { endCursor } = this.state.organization.repository.issues.pageInfo;
+    console.log(endCursor);
+    this.onFetchFromGitHub(this.state.path, endCursor);
   };
 
   render() {
@@ -109,7 +152,11 @@ class App extends React.Component {
 
         <hr />
         {organization ? (
-          <Organization organization={organization} errors={errors} />
+          <Organization
+            organization={organization}
+            errors={errors}
+            onFetchMoreIssues={this.onFetchMoreIssues}
+          />
         ) : (
           <p>No information yet ...</p>
         )}

@@ -1,6 +1,6 @@
 import * as React from "react";
 
-const Organization = ({ organization, errors }) => {
+const Organization = ({ organization, errors, onFetchMoreIssues }) => {
   if (errors) {
     return (
       <p>
@@ -17,16 +17,19 @@ const Organization = ({ organization, errors }) => {
         <strong>Issues from Organization:</strong>
         <a href={organization.url}>{organization.name}</a>
       </p>
-      {organization.repository ? (
-        <Repository repository={organization.repository} />
-      ) : (
+      {/* {organization.repository ? ( */}
+      <Repository
+        repository={organization.repository}
+        onFetchMoreIssues={onFetchMoreIssues}
+      />
+      {/* ) : (
         <p>No repositories found</p>
-      )}
+      )} */}
     </div>
   );
 };
 
-const Repository = ({ repository }) => (
+const Repository = ({ repository, onFetchMoreIssues }) => (
   <div>
     <p>
       <strong>In Repository:</strong>
@@ -36,9 +39,19 @@ const Repository = ({ repository }) => (
       {repository.issues.edges.map(nodeIssue => (
         <li key={nodeIssue.node.id}>
           <a href={nodeIssue.node.url}>{nodeIssue.node.title}</a>
+
+          <ul>
+            {nodeIssue.node.reactions.edges.map(reaction => (
+              <li key={reaction.node.id}>{reaction.node.content}</li>
+            ))}
+          </ul>
         </li>
       ))}
     </ul>
+    <hr />
+    {repository.issues.pageInfo.hasNextPage && (
+      <button onClick={onFetchMoreIssues}>More</button>
+    )}
   </div>
 );
 
