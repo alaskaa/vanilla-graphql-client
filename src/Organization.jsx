@@ -1,6 +1,11 @@
 import * as React from "react";
 
-const Organization = ({ organization, errors, onFetchMoreIssues }) => {
+const Organization = ({
+  organization,
+  errors,
+  onFetchMoreIssues,
+  onStarRepository
+}) => {
   if (errors) {
     return (
       <p>
@@ -21,6 +26,7 @@ const Organization = ({ organization, errors, onFetchMoreIssues }) => {
       <Repository
         repository={organization.repository}
         onFetchMoreIssues={onFetchMoreIssues}
+        onStarRepository={onStarRepository}
       />
       {/* ) : (
         <p>No repositories found</p>
@@ -29,12 +35,23 @@ const Organization = ({ organization, errors, onFetchMoreIssues }) => {
   );
 };
 
-const Repository = ({ repository, onFetchMoreIssues }) => (
+const Repository = ({ repository, onFetchMoreIssues, onStarRepository }) => (
   <div>
     <p>
       <strong>In Repository:</strong>
       <a href={repository.url}>{repository.name}</a>
     </p>
+
+    <button
+      type="button"
+      onClick={() =>
+        onStarRepository(repository.id, repository.viewerHasStarred)
+      }
+    >
+      {repository.stargazers.totalCount}
+      {repository.viewerHasStarred ? " Unstar" : " Star"}
+    </button>
+
     <ul>
       {repository.issues.edges.map(nodeIssue => (
         <li key={nodeIssue.node.id}>

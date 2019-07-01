@@ -55,6 +55,60 @@ const resolveIssuesQuery = (queryResult, cursor) => state => {
   };
 };
 
+const resolveAddStarMutation = mutationResult => state => {
+  const { viewerHasStarred } = mutationResult.data.data.addStar.starrable;
+
+  const { totalCount } = state.organization.repository.stargazers;
+
+  return {
+    ...state,
+    organization: {
+      ...state.organization,
+      repository: {
+        ...state.organization.repository,
+        viewerHasStarred,
+        stargazers: {
+          totalCount: totalCount + 1
+        }
+      }
+    }
+  };
+};
+
+const resolveRemoveStarMutation = mutationResult => state => {
+  const { viewerHasStarred } = mutationResult.data.data.removeStar.starrable;
+
+  const { totalCount } = state.organization.repository.stargazers;
+
+  return {
+    ...state,
+    organization: {
+      ...state.organization,
+      repository: {
+        ...state.organization.repository,
+        viewerHasStarred,
+        stargazers: {
+          totalCount: totalCount - 1
+        }
+      }
+    }
+  };
+};
+
+const addStarToRepository = repositoryId => {
+  return axiosGitHubGraphQL.post("", {
+    query: ADD_STAR,
+    variables: { repositoryId }
+  });
+};
+
+const removeStarFromRepository = repositoryId => {
+  return axiosGitHubGraphQL.post("", {
+    query: REMOVE_STAR,
+    variables: { repositoryId }
+  });
+};
+
 const GET_ISSUES_OF_REPOSITORY = `
 query ($organization: String!, $repository: String!, $cursor: String)
 {
@@ -62,8 +116,13 @@ query ($organization: String!, $repository: String!, $cursor: String)
     name
     url
     repository(name: $repository) {
+      id
       name
       url
+      stargazers {
+        totalCount
+      }
+      viewerHasStarred
       issues(first: 5, after: $cursor, states: [OPEN]) {
         edges {
           node {
@@ -89,6 +148,26 @@ query ($organization: String!, $repository: String!, $cursor: String)
     }
   }
 }`;
+
+const ADD_STAR = `
+mutation ($repositoryId: ID!) {
+  addStar(input:{starrableId:$repositoryId}) {
+    starrable {
+      viewerHasStarred
+    }
+  }
+}
+`;
+
+const REMOVE_STAR = `
+mutation ($repositoryId: ID!) {
+  removeStar(input:{starrableId:$repositoryId}) {
+    starrable {
+      viewerHasStarred
+    }
+  }
+}
+`;
 
 const TITLE = "React GraphQL GitHub Client";
 
@@ -130,6 +209,18 @@ class App extends React.Component {
     this.onFetchFromGitHub(this.state.path, endCursor);
   };
 
+  onStarRepository = (repositoryId, viewerHasStarred) => {
+    if (!viewerHasStarred) {
+      addStarToRepository(repositoryId).then(mutationResult =>
+        this.setState(resolveAddStarMutation(mutationResult))
+      );
+    } else {
+      removeStarFromRepository(repositoryId).then(mutationResult =>
+        this.setState(resolveRemoveStarMutation(mutationResult))
+      );
+    }
+  };
+
   render() {
     const { path, organization, errors } = this.state;
 
@@ -156,6 +247,7 @@ class App extends React.Component {
             organization={organization}
             errors={errors}
             onFetchMoreIssues={this.onFetchMoreIssues}
+            onStarRepository={this.onStarRepository}
           />
         ) : (
           <p>No information yet ...</p>
