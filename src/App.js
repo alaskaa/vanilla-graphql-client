@@ -2,7 +2,7 @@ import * as React from "react";
 import axios from "axios";
 import Organization from "./Organization";
 // import logo from './logo.svg';
-// import './App.css';
+import "./App.css";
 
 // set up baseUrl
 const axiosGitHubGraphQL = axios.create({
@@ -225,7 +225,7 @@ class App extends React.Component {
     const { path, organization, errors } = this.state;
 
     return (
-      <div>
+      <div className="App">
         <h1>{TITLE}</h1>
 
         <form onSubmit={this.onSubmit}>
